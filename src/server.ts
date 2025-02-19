@@ -99,7 +99,6 @@ const BroadcastRequestSchema = z.object({
 interface Config {
     endpoints: string[];
     port: number;
-    wsPort: number;
 }
 
 const app = express();
@@ -118,7 +117,7 @@ async function initializeServer() {
     const config = await loadConfig();
 
     // Initialize WebSocket server
-    const wss = new WebSocketServer({ port: config.wsPort });
+    const wss = new WebSocketServer({ noServer: true });
 
     wss.on('connection', (ws) => {
         clients.add(ws);
@@ -238,9 +237,19 @@ async function initializeServer() {
     });
 
     // Start the server
-    app.listen(config.port, () => {
+    const server = app.listen(config.port, () => {
         console.log(`Server running on port ${config.port}`);
-        console.log(`WebSocket server running on port ${config.wsPort}`);
+    });
+
+    // Handle WebSocket upgrade requests
+    server.on('upgrade', (request, socket, head) => {
+        if (request.url === '/ws') {
+            wss.handleUpgrade(request, socket, head, (ws) => {
+                wss.emit('connection', ws, request);
+            });
+        } else {
+            socket.destroy();
+        }
     });
 }
 
