@@ -1,0 +1,7 @@
+{
+    "endpoints": [
+        "https://fillanthropist.org/broadcast"
+    ],
+    "port": 3000,
+    "wsPort": 8080
+}

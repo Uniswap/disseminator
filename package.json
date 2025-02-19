@@ -1,0 +1,31 @@
+{
+  "name": "disseminator",
+  "version": "0.0.1",
+  "author": "",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/server.ts",
+    "test:ws": "wscat -c ws://localhost:8080"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "description": "WebSocket server implementation that broadcasts messages to both HTTP endpoints and WebSocket clients",
+  "dependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/ws": "^8.5.14",
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "typescript": "^5.7.3",
+    "ws": "^8.18.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2"
+  }
+}
