@@ -72,6 +72,13 @@ server {
     listen 80;
     listen [::]:80;
 
+    root $PROJECT_DIR/public;
+    index index.html;
+
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
     location /broadcast {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
