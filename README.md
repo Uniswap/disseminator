@@ -184,19 +184,20 @@ The project includes a setup script for deploying to a cloud server with automat
 
 ### Deployment Steps
 
-1. Copy the setup script to your server:
-```bash
-scp scripts/setup-server.sh user@your-server:~/
-```
-
-2. SSH into your server:
+1. SSH into your server:
 ```bash
 ssh user@your-server
 ```
 
+2. Clone the repository:
+```bash
+git clone https://github.com/Uniswap/disseminator.git
+cd disseminator
+```
+
 3. Run the setup script with your domain and IP:
 ```bash
-./setup-server.sh your-domain.com your-server-ip
+./scripts/setup-server.sh your-domain.com your-server-ip
 ```
 
 For example:

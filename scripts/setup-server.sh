@@ -22,14 +22,14 @@ echo "Installing Node.js..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
-# Create project directory and set permissions
+# Create and prepare project directory
 echo "Setting up project directory..."
 sudo mkdir -p $PROJECT_DIR
 sudo chown -R $USER:$USER $PROJECT_DIR
 
-# Clone the repository
-echo "Cloning repository..."
-git clone https://github.com/0age/disseminator.git $PROJECT_DIR
+# Copy current repository to project directory
+echo "Copying repository..."
+cp -r . $PROJECT_DIR/
 cd $PROJECT_DIR
 
 # Install dependencies and build
