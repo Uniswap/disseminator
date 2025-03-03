@@ -1,6 +1,7 @@
 {
     "endpoints": [
-        "https://fillanthropist.org/broadcast"
+        "https://fillanthropist.org/broadcast",
+        "https://neutrofill.com/broadcast"
     ],
     "port": 3000
 }
