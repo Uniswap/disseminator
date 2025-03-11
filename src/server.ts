@@ -101,6 +101,27 @@ interface Config {
     port: number;
 }
 
+// Define types for error logging
+interface HttpFailureDetails {
+    endpoint: string;
+    status?: number;
+    statusText?: string;
+    message?: string;
+    data?: any;
+    config?: {
+        url?: string;
+        method?: string;
+        headers?: any;
+    };
+    error?: string;
+}
+
+interface WsFailureDetails {
+    message: string;
+    stack?: string;
+    name?: string;
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -240,30 +261,36 @@ async function initializeServer() {
 
             if (httpFailures.length > 0 || wsFailures.length > 0) {
                 // Enhanced error logging for HTTP failures
-                const detailedHttpFailures = httpFailures.map((failure, index) => {
-                    const error = failure.reason;
-                    if (axios.isAxiosError(error)) {
-                        return {
-                            endpoint: config.endpoints[index],
-                            status: error.response?.status,
-                            statusText: error.response?.statusText,
-                            message: error.message,
-                            data: error.response?.data,
-                            config: {
-                                url: error.config?.url,
-                                method: error.config?.method,
-                                headers: error.config?.headers,
-                            }
-                        };
+                const detailedHttpFailures: HttpFailureDetails[] = [];
+                httpResults.forEach((result, originalIndex) => {
+                    if (result.status === 'rejected') {
+                        const error = result.reason;
+                        const endpoint = config.endpoints[originalIndex];
+                        
+                        if (axios.isAxiosError(error)) {
+                            detailedHttpFailures.push({
+                                endpoint: endpoint,
+                                status: error.response?.status,
+                                statusText: error.response?.statusText,
+                                message: error.message,
+                                data: error.response?.data,
+                                config: {
+                                    url: error.config?.url,
+                                    method: error.config?.method,
+                                    headers: error.config?.headers,
+                                }
+                            });
+                        } else {
+                            detailedHttpFailures.push({
+                                endpoint: endpoint,
+                                error: error instanceof Error ? error.message : String(error)
+                            });
+                        }
                     }
-                    return {
-                        endpoint: config.endpoints[index],
-                        error: error instanceof Error ? error.message : String(error)
-                    };
                 });
 
                 // Enhanced error logging for WebSocket failures
-                const detailedWsFailures = wsFailures.map((failure) => {
+                const detailedWsFailures: WsFailureDetails[] = wsFailures.map((failure) => {
                     const error = failure.reason;
                     return {
                         message: error instanceof Error ? error.message : String(error),
