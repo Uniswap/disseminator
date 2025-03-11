@@ -125,18 +125,18 @@ async function loadConfig(): Promise<Config> {
             
             return config;
         } catch (parseError) {
-            console.error('Failed to parse config.json:', {
+            console.error('Failed to parse config.json:', JSON.stringify({
                 message: parseError instanceof Error ? parseError.message : String(parseError),
                 stack: parseError instanceof Error ? parseError.stack : undefined,
                 configContent: configFile
-            });
+            }, null, 2));
             throw new Error('Invalid JSON in config file');
         }
     } catch (readError) {
-        console.error('Failed to read config.json:', {
+        console.error('Failed to read config.json:', JSON.stringify({
             message: readError instanceof Error ? readError.message : String(readError),
             stack: readError instanceof Error ? readError.stack : undefined
-        });
+        }, null, 2));
         throw new Error('Could not read config file');
     }
 }
@@ -175,18 +175,18 @@ async function initializeServer() {
         } catch (error) {
             // Enhanced validation error logging
             if (error instanceof z.ZodError) {
-                console.error('Validation error:', {
+                console.error('Validation error:', JSON.stringify({
                     issues: error.issues,
                     path: req.path,
                     method: req.method,
                     body: req.body
-                });
+                }, null, 2));
             } else {
-                console.error('Unexpected validation error:', {
+                console.error('Unexpected validation error:', JSON.stringify({
                     error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
                     path: req.path,
                     method: req.method
-                });
+                }, null, 2));
             }
             
             res.status(400).json({
@@ -272,10 +272,11 @@ async function initializeServer() {
                     };
                 });
 
-                console.error('Some operations failed:', {
+                // Use JSON.stringify to ensure deep serialization of nested objects
+                console.error('Some operations failed:', JSON.stringify({
                     httpFailures: detailedHttpFailures,
                     wsFailures: detailedWsFailures
-                });
+                }, null, 2));
             }
 
             // Return detailed status
@@ -296,7 +297,7 @@ async function initializeServer() {
         } catch (error) {
             // Enhanced error logging for the overall request
             if (axios.isAxiosError(error)) {
-                console.error('Error processing broadcast (Axios error):', {
+                console.error('Error processing broadcast (Axios error):', JSON.stringify({
                     message: error.message,
                     status: error.response?.status,
                     statusText: error.response?.statusText,
@@ -306,13 +307,13 @@ async function initializeServer() {
                         method: error.config?.method,
                         headers: error.config?.headers,
                     }
-                });
+                }, null, 2));
             } else {
-                console.error('Error processing broadcast:', 
+                console.error('Error processing broadcast:', JSON.stringify(
                     error instanceof Error 
                         ? { message: error.message, stack: error.stack } 
                         : error
-                );
+                , null, 2));
             }
             
             res.status(500).json({
@@ -327,7 +328,7 @@ async function initializeServer() {
     app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
         // Enhanced global error logging
         if (axios.isAxiosError(err)) {
-            console.error('Unhandled Axios error:', {
+            console.error('Unhandled Axios error:', JSON.stringify({
                 message: err.message,
                 status: err.response?.status,
                 statusText: err.response?.statusText,
@@ -338,9 +339,9 @@ async function initializeServer() {
                     headers: err.config?.headers,
                 },
                 stack: err.stack
-            });
+            }, null, 2));
         } else {
-            console.error('Unhandled error:', {
+            console.error('Unhandled error:', JSON.stringify({
                 message: err.message,
                 stack: err.stack,
                 name: err.name,
@@ -349,7 +350,7 @@ async function initializeServer() {
                 method: req.method,
                 body: req.body,
                 query: req.query
-            });
+            }, null, 2));
         }
         
         res.status(500).json({
@@ -368,11 +369,11 @@ async function initializeServer() {
 
     // Add error handler for the HTTP server
     server.on('error', (error) => {
-        console.error('HTTP server error:', {
+        console.error('HTTP server error:', JSON.stringify({
             message: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,
             code: (error as NodeJS.ErrnoException).code
-        });
+        }, null, 2));
         
         // Handle specific error codes
         if ((error as NodeJS.ErrnoException).code === 'EADDRINUSE') {
@@ -396,10 +397,10 @@ async function initializeServer() {
 
 // Initialize the server
 initializeServer().catch(error => {
-    console.error('Server initialization failed:', {
+    console.error('Server initialization failed:', JSON.stringify({
         message: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
         name: error instanceof Error ? error.name : undefined
-    });
+    }, null, 2));
     process.exit(1);
 });
