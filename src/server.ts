@@ -109,8 +109,36 @@ app.use(express.json());
 const clients = new Set<WebSocket>();
 
 async function loadConfig(): Promise<Config> {
-    const configFile = await fs.readFile('config.json', 'utf-8');
-    return JSON.parse(configFile);
+    try {
+        const configFile = await fs.readFile('config.json', 'utf-8');
+        try {
+            const config = JSON.parse(configFile);
+            
+            // Validate config structure
+            if (!config.endpoints || !Array.isArray(config.endpoints)) {
+                throw new Error('Config must contain an endpoints array');
+            }
+            
+            if (typeof config.port !== 'number') {
+                throw new Error('Config must contain a valid port number');
+            }
+            
+            return config;
+        } catch (parseError) {
+            console.error('Failed to parse config.json:', {
+                message: parseError instanceof Error ? parseError.message : String(parseError),
+                stack: parseError instanceof Error ? parseError.stack : undefined,
+                configContent: configFile
+            });
+            throw new Error('Invalid JSON in config file');
+        }
+    } catch (readError) {
+        console.error('Failed to read config.json:', {
+            message: readError instanceof Error ? readError.message : String(readError),
+            stack: readError instanceof Error ? readError.stack : undefined
+        });
+        throw new Error('Could not read config file');
+    }
 }
 
 async function initializeServer() {
@@ -145,6 +173,22 @@ async function initializeServer() {
             BroadcastRequestSchema.parse(req.body);
             next();
         } catch (error) {
+            // Enhanced validation error logging
+            if (error instanceof z.ZodError) {
+                console.error('Validation error:', {
+                    issues: error.issues,
+                    path: req.path,
+                    method: req.method,
+                    body: req.body
+                });
+            } else {
+                console.error('Unexpected validation error:', {
+                    error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+                    path: req.path,
+                    method: req.method
+                });
+            }
+            
             res.status(400).json({
                 success: false,
                 error: 'Invalid payload',
@@ -195,9 +239,42 @@ async function initializeServer() {
             );
 
             if (httpFailures.length > 0 || wsFailures.length > 0) {
+                // Enhanced error logging for HTTP failures
+                const detailedHttpFailures = httpFailures.map((failure, index) => {
+                    const error = failure.reason;
+                    if (axios.isAxiosError(error)) {
+                        return {
+                            endpoint: config.endpoints[index],
+                            status: error.response?.status,
+                            statusText: error.response?.statusText,
+                            message: error.message,
+                            data: error.response?.data,
+                            config: {
+                                url: error.config?.url,
+                                method: error.config?.method,
+                                headers: error.config?.headers,
+                            }
+                        };
+                    }
+                    return {
+                        endpoint: config.endpoints[index],
+                        error: error instanceof Error ? error.message : String(error)
+                    };
+                });
+
+                // Enhanced error logging for WebSocket failures
+                const detailedWsFailures = wsFailures.map((failure) => {
+                    const error = failure.reason;
+                    return {
+                        message: error instanceof Error ? error.message : String(error),
+                        stack: error instanceof Error ? error.stack : undefined,
+                        name: error instanceof Error ? error.name : undefined
+                    };
+                });
+
                 console.error('Some operations failed:', {
-                    httpFailures,
-                    wsFailures
+                    httpFailures: detailedHttpFailures,
+                    wsFailures: detailedWsFailures
                 });
             }
 
@@ -217,7 +294,27 @@ async function initializeServer() {
             });
 
         } catch (error) {
-            console.error('Error processing broadcast:', error);
+            // Enhanced error logging for the overall request
+            if (axios.isAxiosError(error)) {
+                console.error('Error processing broadcast (Axios error):', {
+                    message: error.message,
+                    status: error.response?.status,
+                    statusText: error.response?.statusText,
+                    data: error.response?.data,
+                    config: {
+                        url: error.config?.url,
+                        method: error.config?.method,
+                        headers: error.config?.headers,
+                    }
+                });
+            } else {
+                console.error('Error processing broadcast:', 
+                    error instanceof Error 
+                        ? { message: error.message, stack: error.stack } 
+                        : error
+                );
+            }
+            
             res.status(500).json({
                 success: false,
                 error: 'Failed to process broadcast request',
@@ -228,7 +325,33 @@ async function initializeServer() {
 
     // Error handling middleware
     app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-        console.error('Unhandled error:', err);
+        // Enhanced global error logging
+        if (axios.isAxiosError(err)) {
+            console.error('Unhandled Axios error:', {
+                message: err.message,
+                status: err.response?.status,
+                statusText: err.response?.statusText,
+                data: err.response?.data,
+                config: {
+                    url: err.config?.url,
+                    method: err.config?.method,
+                    headers: err.config?.headers,
+                },
+                stack: err.stack
+            });
+        } else {
+            console.error('Unhandled error:', {
+                message: err.message,
+                stack: err.stack,
+                name: err.name,
+                // Include request information for context
+                path: req.path,
+                method: req.method,
+                body: req.body,
+                query: req.query
+            });
+        }
+        
         res.status(500).json({
             success: false,
             error: 'Internal server error',
@@ -239,6 +362,24 @@ async function initializeServer() {
     // Start the server
     const server = app.listen(config.port, () => {
         console.log(`Server running on port ${config.port}`);
+        console.log(`Configured endpoints: ${config.endpoints.join(', ')}`);
+        console.log(`WebSocket server available at ws://localhost:${config.port}/ws`);
+    });
+
+    // Add error handler for the HTTP server
+    server.on('error', (error) => {
+        console.error('HTTP server error:', {
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            code: (error as NodeJS.ErrnoException).code
+        });
+        
+        // Handle specific error codes
+        if ((error as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+            console.error(`Port ${config.port} is already in use. Please choose a different port.`);
+        }
+        
+        process.exit(1);
     });
 
     // Handle WebSocket upgrade requests
@@ -254,4 +395,11 @@ async function initializeServer() {
 }
 
 // Initialize the server
-initializeServer().catch(console.error);
+initializeServer().catch(error => {
+    console.error('Server initialization failed:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined
+    });
+    process.exit(1);
+});
